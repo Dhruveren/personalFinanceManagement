@@ -5,8 +5,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 public final class TransactionMapper {
-    public TransactionMapper() {
-    }
+    public TransactionMapper() {}
 
     public static Transaction from(CsvTxnRow r, DateTimeFormatter fmt) {
         if (r == null) throw new IllegalArgumentException("row is null");
