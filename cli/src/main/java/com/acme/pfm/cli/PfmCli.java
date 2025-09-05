@@ -18,7 +18,14 @@ import java.nio.file.Path;
                 ListCommand.class,
                 AddCommand.class,
                 SummaryCommand.class,
-                ImportCommand.class
+                ImportCommand.class,
+
+                // Budget commands
+                com.acme.pfm.cli.commands.BudgetSetCommand.class,
+                com.acme.pfm.cli.commands.BudgetGetCommand.class,
+                com.acme.pfm.cli.commands.BudgetListCommand.class,
+                com.acme.pfm.cli.commands.BudgetDeleteCommand.class,
+                com.acme.pfm.cli.commands.BudgetReportCommand.class
         }
 )
 public class PfmCli implements Runnable {
@@ -49,6 +56,7 @@ public class PfmCli implements Runnable {
         System.exit(exit);
     }
 
+
     @Override
     public void run() {
         System.out.println("💰 Personal Finance Manager CLI");
@@ -63,4 +71,5 @@ public class PfmCli implements Runnable {
         System.out.println("Use 'pfm <command> --help' for detailed options");
         System.out.println("Example: pfm list --month 2025-09 --category Food");
     }
+
 }

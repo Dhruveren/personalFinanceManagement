@@ -10,11 +10,19 @@ import com.acme.pfm.categorize.Categorizer;
 import com.acme.pfm.categorize.RulesLoader;
 import com.acme.pfm.categorize.Ruleset;
 
+import com.acme.pfm.core.BudgetRepositoryPort;
+import com.acme.pfm.db.SQLiteBudgetRepository;
+import com.acme.pfm.cli.services.interfaces.BudgetService;
+import com.acme.pfm.cli.services.impl.BudgetServiceImpl;
+
+
 public class ServiceFactory {
     private static ServiceFactory instance;
 
     private final TransactionService transactionService;
     private final ImportService importService;
+
+    private final BudgetService budgetService;
 
     private ServiceFactory(Config cfg) {
         // 1) Repository adapter (implements the port)
@@ -33,6 +41,10 @@ public class ServiceFactory {
         this.transactionService = new TransactionServiceImpl(port);
         this.importService = new ImportService(url, cfg.csvFormatter(), categorizer); // only once
 
+        SQLiteBudgetRepository budgetRepoImpl = new SQLiteBudgetRepository(url);
+        BudgetRepositoryPort budgetPort = budgetRepoImpl;
+        this.budgetService = new BudgetServiceImpl(budgetPort);
+
     }
 
     public static synchronized ServiceFactory getInstance(Config cfg) {
@@ -47,4 +59,9 @@ public class ServiceFactory {
     public ImportService getImportService() {
         return importService;
     }
+
+    public BudgetService getBudgetService() {
+        return budgetService;
+    }
+
 }
