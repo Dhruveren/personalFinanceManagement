@@ -13,6 +13,9 @@ import com.acme.pfm.cli.commands.BudgetListCommand;
 import com.acme.pfm.cli.commands.BudgetDeleteCommand;
 import com.acme.pfm.cli.commands.BudgetReportCommand;
 
+import com.acme.pfm.cli.commands.ReportExportCommand;
+
+
 
 public class ServiceCommandFactory implements CommandLine.IFactory {
     private final ServiceFactory sf;
@@ -46,6 +49,15 @@ public class ServiceCommandFactory implements CommandLine.IFactory {
         } else if (cls == BudgetReportCommand.class) {
             return (K) new BudgetReportCommand(sf.getBudgetService());
         }
+        else if (cls == ReportExportCommand.class) {
+            return (K) new ReportExportCommand(sf.getReportGenerator());
+        }
+        else if (cls == InitDbCommand.class) {
+            // Picocli will have injected the --config into the command’s field
+            return (K) new InitDbCommand();
+        }
+
+
 
         // fallback to default factory for any other class
         return CommandLine.defaultFactory().create(cls);

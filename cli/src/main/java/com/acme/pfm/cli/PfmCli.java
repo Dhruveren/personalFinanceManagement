@@ -6,6 +6,8 @@ import picocli.CommandLine.Option;
 import com.acme.pfm.cli.commands.*;
 import com.acme.pfm.cli.config.Config;
 import com.acme.pfm.cli.factory.ServiceCommandFactory;
+import com.acme.pfm.cli.commands.ReportExportCommand;
+
 
 import java.nio.file.Path;
 
@@ -25,7 +27,12 @@ import java.nio.file.Path;
                 com.acme.pfm.cli.commands.BudgetGetCommand.class,
                 com.acme.pfm.cli.commands.BudgetListCommand.class,
                 com.acme.pfm.cli.commands.BudgetDeleteCommand.class,
-                com.acme.pfm.cli.commands.BudgetReportCommand.class
+                com.acme.pfm.cli.commands.BudgetReportCommand.class,
+
+                ReportExportCommand.class,
+                InitDbCommand.class
+
+
         }
 )
 public class PfmCli implements Runnable {
@@ -37,17 +44,17 @@ public class PfmCli implements Runnable {
     public static void main(String[] args) {
         int exit;
         try {
-            // First parse only the root options (like --config) on an instance
             PfmCli root = new PfmCli();
+            // First parse to capture root options like --config if you have that on PfmCli
             CommandLine bootstrap = new CommandLine(root);
-            bootstrap.parseArgs(args); // populates root.configPath
+            bootstrap.parseArgs(args);
 
-            // Load configuration and build factory
-            Config cfg = Config.load(root.configPath);
-            ServiceCommandFactory factory = new ServiceCommandFactory(cfg);
+            var cfg = com.acme.pfm.cli.config.Config.load(root.configPath); // or Config.load(null) if no --config
+            var factory = new com.acme.pfm.cli.factory.ServiceCommandFactory(cfg);
 
-            // Now execute the real CLI with dependency-injected commands
-            CommandLine cmd = new CommandLine(PfmCli.class, factory);
+            // IMPORTANT: pass the factory here
+// IMPORTANT: use the existing 'root' instance with your factory
+            CommandLine cmd = new CommandLine(root, factory);
             exit = cmd.execute(args);
         } catch (Exception e) {
             System.err.println("❌ Startup error: " + e.getMessage());

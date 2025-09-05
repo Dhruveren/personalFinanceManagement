@@ -1,6 +1,7 @@
 package com.acme.pfm.cli.services;
 
 import com.acme.pfm.cli.config.Config;
+import com.acme.pfm.cli.reports.ReportGenerator;
 import com.acme.pfm.core.TransactionRepositoryPort;
 import com.acme.pfm.db.SQLiteTransactionRepository;
 import com.acme.pfm.db.ImportService;
@@ -23,6 +24,8 @@ public class ServiceFactory {
     private final ImportService importService;
 
     private final BudgetService budgetService;
+    private final ReportGenerator reportGenerator;
+
 
     private ServiceFactory(Config cfg) {
         // 1) Repository adapter (implements the port)
@@ -45,6 +48,9 @@ public class ServiceFactory {
         BudgetRepositoryPort budgetPort = budgetRepoImpl;
         this.budgetService = new BudgetServiceImpl(budgetPort);
 
+        this.reportGenerator = new ReportGenerator(this.transactionService, this.budgetService);
+
+
     }
 
     public static synchronized ServiceFactory getInstance(Config cfg) {
@@ -63,5 +69,10 @@ public class ServiceFactory {
     public BudgetService getBudgetService() {
         return budgetService;
     }
+
+    public com.acme.pfm.cli.reports.ReportGenerator getReportGenerator() {
+        return reportGenerator;
+    }
+
 
 }

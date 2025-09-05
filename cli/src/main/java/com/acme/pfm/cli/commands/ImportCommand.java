@@ -1,5 +1,7 @@
 package com.acme.pfm.cli.commands;
 
+import com.acme.pfm.cli.config.Config;
+import com.acme.pfm.cli.services.ServiceFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Option;
@@ -15,6 +17,14 @@ import java.util.concurrent.Callable;
         mixinStandardHelpOptions = true
 )
 public class ImportCommand implements Callable<Integer> {
+
+    public ImportCommand() {
+        // Load default config or null
+        Config cfg = Config.load(null);
+        ServiceFactory sf = ServiceFactory.getInstance(cfg);
+        this.importService = sf.getImportService();
+    }
+
 
     private final ImportService importService;
 
