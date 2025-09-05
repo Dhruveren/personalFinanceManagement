@@ -10,7 +10,7 @@ public class Transaction {
     private final LocalDate date;
     private final String description;
     private final BigDecimal amount;
-    private final String category;
+    private String category;
 
     public Transaction(String id, LocalDate date, String description, BigDecimal amount, String category) {
         this.id = id;
@@ -50,6 +50,8 @@ public class Transaction {
     public int hashCode() {
         return Objects.hash(id, date, description, amount, category);
     }
+    public void setCategory(String category) { this.category = category; }
+
 
     @Override
     public String toString() {

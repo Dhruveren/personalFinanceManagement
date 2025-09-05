@@ -37,6 +37,9 @@ import java.nio.file.Path;
 )
 public class PfmCli implements Runnable {
 
+    @Option(names = "--verbose", description = "Enable debug logs")
+    private boolean verbose;
+
     // Global option to specify config file
     @Option(names = {"--config"}, description = "Path to properties file")
     private Path configPath;
@@ -48,6 +51,12 @@ public class PfmCli implements Runnable {
             // First parse to capture root options like --config if you have that on PfmCli
             CommandLine bootstrap = new CommandLine(root);
             bootstrap.parseArgs(args);
+
+            // set level via system property before any logger init
+            if (root.verbose) {
+                System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
+                System.setProperty("org.slf4j.simpleLogger.log.com.acme.pfm", "debug");
+            }
 
             var cfg = com.acme.pfm.cli.config.Config.load(root.configPath); // or Config.load(null) if no --config
             var factory = new com.acme.pfm.cli.factory.ServiceCommandFactory(cfg);

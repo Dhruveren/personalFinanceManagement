@@ -10,8 +10,18 @@ import java.util.concurrent.Callable;
 
 @Command(name="budget-set", description="Set or update a category budget for a month", mixinStandardHelpOptions = true)
 public class BudgetSetCommand implements Callable<Integer> {
+
     private final BudgetService service;
-    public BudgetSetCommand(BudgetService s) { this.service = s; }
+    public BudgetSetCommand(BudgetService service) {
+        this.service = service;
+    }
+
+    // Optional: if picocli is not using the DI factory, fail fast with a clear message
+    BudgetSetCommand() {
+        throw new IllegalStateException("BudgetSetCommand requires DI factory to provide BudgetService");
+    }
+
+
 
     @Parameters(index="0", description="Month in YYYY-MM") String month;
     @Parameters(index="1", description="Category") String category;

@@ -14,4 +14,6 @@ public interface TransactionRepository {
     boolean update(Transaction t) throws Exception;
 
     boolean deleteById(String id) throws Exception;
+
+    int batchInsert(List<Transaction> ready);
 }

@@ -9,7 +9,7 @@ import java.util.concurrent.Callable;
 
 @Command(name="budget-get", description="Get budget amount for month/category", mixinStandardHelpOptions = true)
 public class BudgetGetCommand implements Callable<Integer> {
-    private final BudgetService service;
+    private BudgetService service;
     public BudgetGetCommand(BudgetService s) { this.service = s; }
 
     @Parameters(index="0") String month;

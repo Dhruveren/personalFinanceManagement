@@ -5,11 +5,13 @@ import com.acme.pfm.Transaction;
 import java.math.BigDecimal;
 
 public class Categorizer {
+
     private final Ruleset ruleset;
 
     public Categorizer(Ruleset ruleset) {
         this.ruleset = ruleset;
     }
+
 
     public String categorize(Transaction t) {
         String desc = t.getDescription() == null ? "" : t.getDescription().toLowerCase();
@@ -40,4 +42,6 @@ public class Categorizer {
         // 3) Default
         return "Uncategorized";
     }
+
+
 }
