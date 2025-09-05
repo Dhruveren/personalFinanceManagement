@@ -106,4 +106,58 @@ public class SQLiteTransactionRepository implements TransactionRepository {
         return new Transaction(id, date, description, amount, category);
     }
 
+    public int[] saveAll(java.util.List<Transaction> items) throws java.sql.SQLException {
+        String sql = "INSERT INTO transactions(id,date,description,amount,category) VALUES(?,?,?,?,?)";
+        try (java.sql.Connection c = java.sql.DriverManager.getConnection(url);
+             java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+            c.setAutoCommit(false);
+            for (Transaction t : items) {
+                ps.setString(1, t.getId());
+                ps.setString(2, t.getDate().toString()); // ISO yyyy-MM-dd TEXT
+                ps.setString(3, t.getDescription());
+                ps.setString(4, t.getAmount().toPlainString());
+                ps.setString(5, t.getCategory());
+                ps.addBatch();
+            }
+            int[] counts;
+            try {
+                counts = ps.executeBatch();
+                c.commit();
+            } catch (java.sql.SQLException e) {
+                c.rollback();
+                throw e;
+            }
+            return counts;
+        }
+    }
+
+    public java.util.List<Transaction> findByCategory(String category) throws java.sql.SQLException {
+        String sql = "SELECT id,date,description,amount,category FROM transactions WHERE category=? ORDER BY date DESC";
+        java.util.List<Transaction> out = new java.util.ArrayList<>();
+        try (var c = java.sql.DriverManager.getConnection(url);
+             var ps = c.prepareStatement(sql)) {
+            ps.setString(1, category);
+            try (var rs = ps.executeQuery()) {
+                while (rs.next()) out.add(mapRow(rs));
+            }
+        }
+        return out;
+    }
+
+    public java.util.List<Transaction> findByDateRange(java.time.LocalDate start, java.time.LocalDate end) throws java.sql.SQLException {
+// dates stored as ISO yyyy-MM-dd TEXT, so lexicographic BETWEEN works
+        String sql = "SELECT id,date,description,amount,category FROM transactions WHERE date BETWEEN ? AND ? ORDER BY date ASC";
+        java.util.List<Transaction> out = new java.util.ArrayList<>();
+        try (var c = java.sql.DriverManager.getConnection(url);
+             var ps = c.prepareStatement(sql)) {
+            ps.setString(1, start.toString());
+            ps.setString(2, end.toString());
+            try (var rs = ps.executeQuery()) {
+                while (rs.next()) out.add(mapRow(rs));
+            }
+        }
+        return out;
+    }
+
+
 }

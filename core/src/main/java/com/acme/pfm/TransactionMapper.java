@@ -5,10 +5,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 public final class TransactionMapper {
-    private TransactionMapper() {
+    public TransactionMapper() {
     }
 
-    static Transaction from(CsvTxnRow r, DateTimeFormatter fmt) {
+    public static Transaction from(CsvTxnRow r, DateTimeFormatter fmt) {
         if (r == null) throw new IllegalArgumentException("row is null");
         if (fmt == null) throw new IllegalArgumentException("formatter is null");
         String dateStr = r.getDate();
