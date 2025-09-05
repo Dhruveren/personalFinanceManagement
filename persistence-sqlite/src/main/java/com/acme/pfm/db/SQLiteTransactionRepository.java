@@ -1,163 +1,161 @@
 package com.acme.pfm.db;
 
-import com.acme.pfm.Transaction;
+import com.acme.pfm.core.TransactionRepositoryPort;
+import com.acme.pfm.core.TransactionRepositoryPort.TxRow;
 
-import java.math.BigDecimal;
 import java.sql.*;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-public class SQLiteTransactionRepository implements TransactionRepository {
-    private final String url;
+public class SQLiteTransactionRepository implements TransactionRepositoryPort {
 
-    public SQLiteTransactionRepository(String url) {
-        this.url = url;
+    private final String url; // jdbc:sqlite:/absolute/path/pfm.db
+
+    public SQLiteTransactionRepository(String jdbcUrl) {
+        this.url = jdbcUrl;
+    }
+
+    private Connection conn() throws SQLException {
+        return DriverManager.getConnection(url);
     }
 
     @Override
-    public void save(Transaction t) throws SQLException {
-        String sql = "INSERT INTO transactions(id,date,description,amount,category) VALUES(?,?,?,?,?)";
-        try (Connection c = DriverManager.getConnection(url)) {
-            c.setAutoCommit(false);
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, t.getId());
-                ps.setString(2, t.getDate().toString());
-                ps.setString(3, t.getDescription());
-                ps.setString(4, t.getAmount().toPlainString());
-                ps.setString(5, t.getCategory());
-                ps.executeUpdate();
-                c.commit();
-            } catch (SQLException e) {
-                c.rollback();
-                throw e;
-            }
+    public List<TxRow> find(String month, String category, Double minAmount, Double maxAmount, String type, int limit) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT date, amount, description, category, type FROM transactions WHERE 1=1"
+        );
+        List<Object> args = new ArrayList<>();
+
+        if (month != null && !month.isBlank()) {
+            sql.append(" AND substr(date,1,7) = ?");
+            args.add(month); // YYYY-MM
         }
-    }
+        if (category != null && !category.isBlank()) {
+            sql.append(" AND category = ?");
+            args.add(category);
+        }
+        if (type != null && !type.isBlank()) {
+            sql.append(" AND lower(type) = ?");
+            args.add(type.toLowerCase());
+        }
+        if (minAmount != null) {
+            sql.append(" AND amount >= ?");
+            args.add(minAmount);
+        }
+        if (maxAmount != null) {
+            sql.append(" AND amount <= ?");
+            args.add(maxAmount);
+        }
+        sql.append(" ORDER BY date DESC, rowid DESC");
+        sql.append(" LIMIT ").append(Math.max(1, limit));
 
-    @Override
-    public Transaction findById(String id) throws SQLException {
-        String sql = "SELECT id,date,description,amount,category FROM transactions WHERE id=?";
-        try (Connection c = DriverManager.getConnection(url);
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, id);
+        List<TxRow> out = new ArrayList<>();
+        try (Connection c = conn(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < args.size(); i++) ps.setObject(i + 1, args.get(i));
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
+                while (rs.next()) {
+                    String date = rs.getString("date"); // store ISO text in DB
+                    double amount = rs.getDouble("amount");
+                    String desc = rs.getString("description");
+                    String cat = rs.getString("category");
+                    String ty = rs.getString("type");
+                    out.add(new TxRow(date, amount, desc, cat, ty));
+                }
             }
-        }
-    }
-
-    @Override
-    public List<Transaction> findAll() throws SQLException {
-        String sql = "SELECT id,date,description,amount,category FROM transactions ORDER BY date DESC";
-        List<Transaction> out = new ArrayList<>();
-        try (Connection c = DriverManager.getConnection(url);
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) out.add(mapRow(rs));
+        } catch (SQLException e) {
+            throw new RuntimeException("find() failed: " + e.getMessage(), e);
         }
         return out;
     }
 
     @Override
-    public boolean update(Transaction t) throws SQLException {
-        String sql = "UPDATE transactions SET date=?, description=?, amount=?, category=? WHERE id=?";
-        try (Connection c = DriverManager.getConnection(url)) {
-            c.setAutoCommit(false);
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, t.getDate().toString());
-                ps.setString(2, t.getDescription());
-                ps.setString(3, t.getAmount().toPlainString());
-                ps.setString(4, t.getCategory());
-                ps.setString(5, t.getId());
-                int n = ps.executeUpdate();
-                c.commit();
-                return n > 0;
-            } catch (SQLException e) {
-                c.rollback();
-                throw e;
-            }
+    public int insert(String date, double amount, String description, String category, String type) {
+        String sql = "INSERT INTO transactions(date, amount, description, category, type) VALUES (?, ?, ?, ?, ?)";
+        try (Connection c = conn(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, date);
+            ps.setDouble(2, amount);
+            ps.setString(3, description);
+            ps.setString(4, category);
+            ps.setString(5, type.toLowerCase());
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("insert() failed: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public boolean deleteById(String id) throws SQLException {
-        String sql = "DELETE FROM transactions WHERE id=?";
-        try (Connection c = DriverManager.getConnection(url)) {
-            c.setAutoCommit(false);
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, id);
-                int n = ps.executeUpdate();
-                c.commit();
-                return n > 0;
-            } catch (SQLException e) {
-                c.rollback();
-                throw e;
+    public double sumByType(String period, String month, String type) {
+        // period can be "monthly","weekly","yearly"; for now use month if given
+        StringBuilder sql = new StringBuilder("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE lower(type)=?");
+        List<Object> args = new ArrayList<>();
+        args.add(type.toLowerCase());
+
+        if (month != null && !month.isBlank()) {
+            sql.append(" AND substr(date,1,7)=?");
+            args.add(month);
+        }
+        try (Connection c = conn(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < args.size(); i++) ps.setObject(i + 1, args.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getDouble("total") : 0.0;
             }
+        } catch (SQLException e) {
+            throw new RuntimeException("sumByType() failed: " + e.getMessage(), e);
         }
     }
 
-    private Transaction mapRow(ResultSet rs) throws SQLException {
-        String id = rs.getString("id");
-        LocalDate date = LocalDate.parse(rs.getString("date"));
-        String description = rs.getString("description");
-        BigDecimal amount = new BigDecimal(rs.getString("amount"));
-        String category = rs.getString("category");
-        return new Transaction(id, date, description, amount, category);
-    }
-
-    public int[] saveAll(java.util.List<Transaction> items) throws java.sql.SQLException {
-        String sql = "INSERT INTO transactions(id,date,description,amount,category) VALUES(?,?,?,?,?)";
-        try (java.sql.Connection c = java.sql.DriverManager.getConnection(url);
-             java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
-            c.setAutoCommit(false);
-            for (Transaction t : items) {
-                ps.setString(1, t.getId());
-                ps.setString(2, t.getDate().toString()); // ISO yyyy-MM-dd TEXT
-                ps.setString(3, t.getDescription());
-                ps.setString(4, t.getAmount().toPlainString());
-                ps.setString(5, t.getCategory());
-                ps.addBatch();
+    @Override
+    public int count(String period, String month) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) AS cnt FROM transactions WHERE 1=1");
+        List<Object> args = new ArrayList<>();
+        if (month != null && !month.isBlank()) {
+            sql.append(" AND substr(date,1,7)=?");
+            args.add(month);
+        }
+        try (Connection c = conn(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < args.size(); i++) ps.setObject(i + 1, args.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt("cnt") : 0;
             }
-            int[] counts;
-            try {
-                counts = ps.executeBatch();
-                c.commit();
-            } catch (java.sql.SQLException e) {
-                c.rollback();
-                throw e;
-            }
-            return counts;
+        } catch (SQLException e) {
+            throw new RuntimeException("count() failed: " + e.getMessage(), e);
         }
     }
 
-    public java.util.List<Transaction> findByCategory(String category) throws java.sql.SQLException {
-        String sql = "SELECT id,date,description,amount,category FROM transactions WHERE category=? ORDER BY date DESC";
-        java.util.List<Transaction> out = new java.util.ArrayList<>();
-        try (var c = java.sql.DriverManager.getConnection(url);
-             var ps = c.prepareStatement(sql)) {
-            ps.setString(1, category);
-            try (var rs = ps.executeQuery()) {
-                while (rs.next()) out.add(mapRow(rs));
-            }
+    @Override
+    public Map<String, Double> sumByCategory(String period, String month) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT category, COALESCE(SUM(amount),0) AS total FROM transactions WHERE 1=1"
+        );
+        List<Object> args = new ArrayList<>();
+        if (month != null && !month.isBlank()) {
+            sql.append(" AND substr(date,1,7)=?");
+            args.add(month);
         }
-        return out;
+        sql.append(" GROUP BY category ORDER BY total DESC");
+
+        Map<String, Double> result = new LinkedHashMap<>();
+        try (Connection c = conn(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < args.size(); i++) ps.setObject(i + 1, args.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.put(rs.getString("category"), rs.getDouble("total"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("sumByCategory() failed: " + e.getMessage(), e);
+        }
+        return result;
     }
 
-    public java.util.List<Transaction> findByDateRange(java.time.LocalDate start, java.time.LocalDate end) throws java.sql.SQLException {
-// dates stored as ISO yyyy-MM-dd TEXT, so lexicographic BETWEEN works
-        String sql = "SELECT id,date,description,amount,category FROM transactions WHERE date BETWEEN ? AND ? ORDER BY date ASC";
-        java.util.List<Transaction> out = new java.util.ArrayList<>();
-        try (var c = java.sql.DriverManager.getConnection(url);
-             var ps = c.prepareStatement(sql)) {
-            ps.setString(1, start.toString());
-            ps.setString(2, end.toString());
-            try (var rs = ps.executeQuery()) {
-                while (rs.next()) out.add(mapRow(rs));
-            }
+    @Override
+    public List<String> categories() {
+        String sql = "SELECT DISTINCT category FROM transactions ORDER BY category";
+        List<String> cats = new ArrayList<>();
+        try (Connection c = conn(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) cats.add(rs.getString(1));
+        } catch (SQLException e) {
+            throw new RuntimeException("categories() failed: " + e.getMessage(), e);
         }
-        return out;
+        return cats;
     }
-
-
 }
