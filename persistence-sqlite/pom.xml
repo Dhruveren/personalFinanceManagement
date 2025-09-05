@@ -22,6 +22,12 @@
             <artifactId>sqlite-jdbc</artifactId>
             <version>3.49.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>com.acme.pfm</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
     </dependencies>
 
 

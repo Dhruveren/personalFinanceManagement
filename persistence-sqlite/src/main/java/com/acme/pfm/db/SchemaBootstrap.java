@@ -41,7 +41,9 @@ public class SchemaBootstrap {
 
     // convinience main to run from ide
     public static void main(String[] args) throws IOException, SQLException {
-        String url = "jdbc:sqlite:pfm:db";
+        String abs = new java.io.File("pfm/pfm.db").getAbsolutePath();
+        System.out.println("Applying Schema to: " + abs);
+        String url = "jdbc:sqlite:" + abs;
         new SchemaBootstrap(url, "schema.sql").run();
         System.out.println("Schema bootstrap complete.");
     }
