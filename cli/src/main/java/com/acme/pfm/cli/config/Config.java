@@ -39,4 +39,8 @@ public final class Config {
         String fmt = props.getProperty("csv.date.format", "uuuu-MM-dd");
         return DateTimeFormatter.ofPattern(fmt);
     }
+    public String rulesPath() {
+        return props.getProperty("rules.path", "classpath:/rules.yml");
+    }
+
 }

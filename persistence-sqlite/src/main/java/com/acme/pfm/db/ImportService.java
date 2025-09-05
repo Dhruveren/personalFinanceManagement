@@ -2,6 +2,7 @@ package com.acme.pfm.db;
 
 import com.acme.pfm.CsvTransactionParser;
 import com.acme.pfm.TransactionMapper;
+import com.acme.pfm.categorize.Categorizer;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -13,25 +14,39 @@ public class ImportService {
     private final String jdbcUrl;
     private final CsvTransactionParser parser;
     private final DateTimeFormatter fmt;
+    private final Categorizer categorizer;
 
     public ImportService(String jdbcUrl, DateTimeFormatter fmt) {
+        this(jdbcUrl, fmt, null);
+    }
+
+    public ImportService(String jdbcUrl, DateTimeFormatter fmt, Categorizer categorizer) {
         this.jdbcUrl = jdbcUrl;
         this.parser = new CsvTransactionParser();
         this.fmt = fmt;
+        this.categorizer = categorizer;
     }
 
     public int importCsv(Path csvPath) throws Exception {
-        // 1) Ensure schema exists
         new SchemaBootstrap(jdbcUrl, "schema.sql").run();
 
-        // 2) Parse and map CSV → domain
         var rows = parser.parse(csvPath);
         var txns = rows.stream().map(r -> TransactionMapper.from(r, fmt)).toList();
 
         if (txns.isEmpty()) return 0;
 
-        // 3) Batch insert in one transaction (fast and atomic)
-        String sql = "INSERT INTO transactions(date, amount, description, category, type) VALUES (?, ?, ?, ?, ?)";
+        if (categorizer != null) {
+            txns = txns.stream().map(t -> {
+                String cat = t.getCategory();
+                if (cat == null || cat.isBlank() || "Uncategorized".equalsIgnoreCase(cat)) {
+                    String newCat = categorizer.categorize(t);
+                    return new com.acme.pfm.Transaction(t.getId(), t.getDate(), t.getDescription(), t.getAmount(), newCat);
+                }
+                return t;
+            }).toList();
+        }
+
+        String sql = "INSERT INTO transactions(id, date, amount, description, category) VALUES (?, ?, ?, ?, ?)";
         int inserted = 0;
 
         try (Connection c = DriverManager.getConnection(jdbcUrl);
@@ -39,9 +54,9 @@ public class ImportService {
 
             c.setAutoCommit(false);
             for (var t : txns) {
-                ps.setString(1, t.getId());                       // id
-                ps.setString(2, t.getDate().toString());          // ISO yyyy-MM-dd
-                ps.setBigDecimal(3, t.getAmount());               // BigDecimal preferred
+                ps.setString(1, t.getId());
+                ps.setString(2, t.getDate().toString());
+                ps.setBigDecimal(3, t.getAmount());
                 ps.setString(4, t.getDescription());
                 ps.setString(5, t.getCategory());
                 ps.addBatch();
@@ -49,13 +64,10 @@ public class ImportService {
             int[] counts = ps.executeBatch();
             c.commit();
 
-            // Count total rows affected
             for (int n : counts) {
-                if (n >= 0) inserted += n;   // SUCCESS_NO_INFO may be -2; treat as 1 if preferred
-                else if (n == java.sql.Statement.SUCCESS_NO_INFO) inserted += 1;
+                inserted += (n >= 0) ? n : 1; // SUCCESS_NO_INFO
             }
         } catch (Exception e) {
-            // Re-throw with context
             throw new RuntimeException("CSV import failed: " + e.getMessage(), e);
         }
 

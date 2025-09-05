@@ -1,0 +1,27 @@
+rules:
+  - name: Salary
+    category: Income
+    description_regex: "(?i)salary|payroll|monthly salary|credit salary"
+    min_amount: 1000
+    direction: credit
+
+  - name: Grocery
+    category: Food
+    description_regex: "(?i)groc(er(y|ies)?|big bazaar|d-mart|more supermarket)"
+    direction: debit
+
+  - name: Cab
+    category: Transport
+    description_regex: "(?i)(uber|ola|rapido|cab)"
+    direction: debit
+
+  - name: Coffee
+    category: Food
+    description_regex: "(?i)(cafe|coffee|starbucks|ccd)"
+    max_amount: 1000
+    direction: debit
+
+  - name: Electricity
+    category: Bills
+    description_regex: "(?i)electricity|power bill|bescom|tneb|wbseb"
+    direction: debit
