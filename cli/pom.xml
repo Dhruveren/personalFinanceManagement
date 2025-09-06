@@ -73,6 +73,22 @@
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>parse-version</id>
+                        <phase>initialize</phase>
+                        <goals><goal>parse-version</goal></goals>
+                        <configuration>
+                            <propertyPrefix>parsed</propertyPrefix>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.2.0</version>
                 <configuration>
@@ -80,32 +96,44 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <mainClass>com.acme.pfm.cli.PfmCli</mainClass>
+                </configuration>
+            </plugin>
+
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.acme.pfm.cli.PfmCli</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
                 <executions>
                     <execution>
+                        <id>make-assembly</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>shade</goal>
+                            <goal>single</goal>
                         </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.acme.pfm.cli.PfmCli</mainClass>
-                                </transformer>
-                            </transformers>
-                            <finalName>pfm-cli</finalName>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
+            <!-- Runnable shaded JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.5.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -117,11 +145,142 @@
                                     <mainClass>com.acme.pfm.cli.PfmCli</mainClass>
                                 </transformer>
                             </transformers>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
+            <!-- jpackage base (no type/appVersion here; per-OS sets them) -->
+            <plugin>
+                <groupId>org.panteleyev</groupId>
+                <artifactId>jpackage-maven-plugin</artifactId>
+                <version>1.6.6</version>
+                <configuration>
+                    <name>pfm</name>
+                    <vendor>ACME</vendor>
+                    <destination>${project.build.directory}/dist</destination>
+                    <input>${project.build.directory}</input>
+                    <mainJar>pfm-cli.jar</mainJar>
+                    <mainClass>com.acme.pfm.cli.PfmCli</mainClass>
+                    <removeDestination>true</removeDestination>
+                    <javaOptions>
+                        <javaOption>-Dfile.encoding=UTF-8</javaOption>
+                    </javaOptions>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.panteleyev</groupId>
+                <artifactId>jpackage-maven-plugin</artifactId>
+                <version>1.6.6</version>
+                <configuration>
+                    <name>pfm</name>
+                    <appVersion>${project.version}</appVersion>
+                    <vendor>ACME</vendor>
+                    <destination>${project.build.directory}/dist</destination>
+                    <input>${project.build.directory}</input>
+                    <!-- use the shaded JAR name from maven-shade-plugin -->
+                    <mainJar>pfm-cli.jar</mainJar>
+                    <mainClass>com.acme.pfm.cli.PfmCli</mainClass>
+                    <removeDestination>true</removeDestination>
+                    <javaOptions>
+                        <javaOption>-Dfile.encoding=UTF-8</javaOption>
+                    </javaOptions>
+                    <!-- Optionally set -runtime-image if you build one with jlink later -->
+                    <!-- <runtimeImage>${project.build.directory}/runtime</runtimeImage> -->
+                </configuration>
+            </plugin>
+
+
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>windows</id>
+            <activation>
+                <os><family>windows</family></os>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>win-msi</id>
+                                <phase>verify</phase>
+                                <goals><goal>jpackage</goal></goals>
+                                <configuration>
+                                    <type>MSI</type>
+                                    <appVersion>${parsed.majorVersion}.${parsed.minorVersion}.${parsed.incrementalVersion}</appVersion>
+                                    <winConsole>true</winConsole>
+                                    <winMenu>true</winMenu>
+                                    <winShortcut>true</winShortcut>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+
+        <profile>
+            <id>mac</id>
+            <activation>
+                <os><name>Mac OS X</name></os>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>mac-dmg</id>
+                                <phase>verify</phase>
+                                <goals><goal>jpackage</goal></goals>
+                                <configuration>
+                                    <type>DMG</type>
+                                    <appVersion>${parsed.majorVersion}.${parsed.minorVersion}.${parsed.incrementalVersion}</appVersion>
+                                    <macPackageIdentifier>com.acme.pfm</macPackageIdentifier>
+                                    <macSign>false</macSign>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os><name>Linux</name></os>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>linux-deb</id>
+                                <phase>verify</phase>
+                                <goals><goal>jpackage</goal></goals>
+                                <configuration>
+                                    <type>DEB</type>
+                                    <appVersion>${parsed.majorVersion}.${parsed.minorVersion}.${parsed.incrementalVersion}</appVersion>
+                                    <linuxPackageName>pfm</linuxPackageName>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
 </project>
