@@ -1,3 +1,4 @@
+# .github/workflows/package.yml
 name: Package (jpackage)
 
 on:
@@ -14,13 +15,7 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - name: Build DMG
-        run: mvn -B -pl cli -am clean package verify -P mac
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: pfm-mac-dmg
-          path: cli/target/dist/*.dmg
+      - run: mvn -B -pl cli -am clean package verify -P mac
 
   windows_installer:
     runs-on: windows-latest
@@ -31,15 +26,7 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - name: Build installer
-        run: mvn -B -pl cli -am clean package verify -P windows
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pfm-win
-          path: |
-            cli/target/dist/*.msi
-            cli/target/dist/*.exe
+      - run: mvn -B -pl cli -am clean package verify -P windows
 
   linux_deb:
     runs-on: ubuntu-latest
@@ -50,10 +37,4 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - name: Build DEB
-        run: mvn -B -pl cli -am clean package verify -P linux
-      - name: Upload DEB
-        uses: actions/upload-artifact@v4
-        with:
-          name: pfm-linux-deb
-          path: cli/target/dist/*.deb
+      - run: mvn -B -pl cli -am clean package verify -P linux
