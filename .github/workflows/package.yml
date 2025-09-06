@@ -15,13 +15,15 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - run: mvn -B -pl cli -am clean package verify -P mac
-      - uses: actions/upload-artifact@v3
+      - name: Build DMG Installer
+        run: mvn -B -pl cli -am clean package verify -P mac
+      - name: Upload Mac Installer
+        uses: actions/upload-artifact@v4
         with:
           name: pfm-mac
           path: cli/target/dist/*.dmg
 
-  build-win:
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,11 +32,13 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - run: mvn -B -pl cli -am clean package verify -P windows
-      - uses: actions/upload-artifact@v3
+      - name: Build Windows Installer
+        run: mvn -B -pl cli -am clean package verify -P windows
+      - name: Upload Windows Installer
+        uses: actions/upload-artifact@v4
         with:
           name: pfm-win
-          path: cli/target/dist/*.msi, cli/target/dist/*.exe
+          path: cli/target/dist/*.{msi,exe}
 
   build-linux:
     runs-on: ubuntu-latest
@@ -45,8 +49,10 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - run: mvn -B -pl cli -am clean package verify -P linux
-      - uses: actions/upload-artifact@v3
+      - name: Build Linux DEB
+        run: mvn -B -pl cli -am clean package verify -P linux
+      - name: Upload Linux Installer
+        uses: actions/upload-artifact@v4
         with:
           name: pfm-linux
           path: cli/target/dist/*.deb
