@@ -6,38 +6,35 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  create-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      # Download macOS artifacts
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v3
+      - name: Download Mac Installer
+        uses: actions/download-artifact@v4
         with:
           name: pfm-mac
           path: dist/mac
 
-      # Download Windows artifacts
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v3
+      - name: Download Windows Installer
+        uses: actions/download-artifact@v4
         with:
           name: pfm-win
           path: dist/windows
 
-      # Download Linux artifacts
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v3
+      - name: Download Linux Installer
+        uses: actions/download-artifact@v4
         with:
           name: pfm-linux
           path: dist/linux
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/mac/*.dmg
-            dist/windows/**/*.{exe,msi}
+            dist/windows/*.{exe,msi}
             dist/linux/*.deb
           draft: false
           prerelease: false
