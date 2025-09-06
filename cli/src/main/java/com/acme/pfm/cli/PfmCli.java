@@ -8,6 +8,15 @@ import com.acme.pfm.cli.config.Config;
 import com.acme.pfm.cli.factory.ServiceCommandFactory;
 import com.acme.pfm.cli.commands.ReportExportCommand;
 
+import picocli.CommandLine;
+import picocli.CommandLine.IFactory;
+import picocli.CommandLine.ParseResult;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
+import com.acme.pfm.cli.config.Config;
+import com.acme.pfm.cli.factory.ServiceCommandFactory;
+import java.nio.file.Path;
+
 
 import java.nio.file.Path;
 
@@ -33,6 +42,8 @@ import java.nio.file.Path;
                 InitDbCommand.class
 
 
+
+
         }
 )
 public class PfmCli implements Runnable {
@@ -40,52 +51,40 @@ public class PfmCli implements Runnable {
     @Option(names = "--verbose", description = "Enable debug logs")
     private boolean verbose;
 
-    // Global option to specify config file
     @Option(names = {"--config"}, description = "Path to properties file")
     private Path configPath;
 
     public static void main(String[] args) {
-        int exit;
+        int exitCode;
         try {
             PfmCli root = new PfmCli();
-            // First parse to capture root options like --config if you have that on PfmCli
-            CommandLine bootstrap = new CommandLine(root);
-            bootstrap.parseArgs(args);
 
-            // set level via system property before any logger init
-            if (root.verbose) {
+            // Build one CommandLine with your DI factory
+            Config cfg = Config.load(root.configPath);
+            IFactory factory = new ServiceCommandFactory(cfg);
+            CommandLine cmd = new CommandLine(root, factory);
+
+            // Parse only root options (--verbose, --config), stop before subcommand
+            ParseResult result = cmd.parseArgs(args);
+            if (result.hasMatchedOption("--verbose")) {
                 System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
                 System.setProperty("org.slf4j.simpleLogger.log.com.acme.pfm", "debug");
             }
 
-            var cfg = com.acme.pfm.cli.config.Config.load(root.configPath); // or Config.load(null) if no --config
-            var factory = new com.acme.pfm.cli.factory.ServiceCommandFactory(cfg);
+            // Now execute the full command (subcommand instantiation via your factory)
+            exitCode = cmd.execute(args);
 
-            // IMPORTANT: pass the factory here
-// IMPORTANT: use the existing 'root' instance with your factory
-            CommandLine cmd = new CommandLine(root, factory);
-            exit = cmd.execute(args);
-        } catch (Exception e) {
-            System.err.println("❌ Startup error: " + e.getMessage());
-            exit = 1;
+        } catch (Exception ex) {
+            System.err.println("❌ Startup error: " + ex.getMessage());
+            ex.printStackTrace();
+            exitCode = 1;
         }
-        System.exit(exit);
+        System.exit(exitCode);
     }
-
 
     @Override
     public void run() {
-        System.out.println("💰 Personal Finance Manager CLI");
-        System.out.println("===============================");
-        System.out.println();
-        System.out.println("Available commands:");
-        System.out.println("  📊 list     - List transactions with filters");
-        System.out.println("  ➕ add      - Add new transaction manually");
-        System.out.println("  📈 summary  - Show financial summary & stats");
-        System.out.println("  📥 import   - Import transactions from CSV");
-        System.out.println();
-        System.out.println("Use 'pfm <command> --help' for detailed options");
-        System.out.println("Example: pfm list --month 2025-09 --category Food");
+        // default help text when no subcommand provided
+        CommandLine.usage(this, System.out);
     }
-
 }
